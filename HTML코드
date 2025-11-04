@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Ttak - Smart Toolbox (4자리 코드 Mock-Up)</title>
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f4f6f9;
+      text-align: center;
+      margin: 0;
+      padding: 40px;
+    }
+    h1 {
+      color: #333;
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+    .status-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .tool-card {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      padding: 20px;
+      width: 180px;
+      transition: 0.3s;
+    }
+    .tool-card h2 {
+      margin-bottom: 10px;
+    }
+    .status {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #555;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    .ok { background-color: #c6f6d5; color: #065f46; }
+    .use { background-color: #dbeafe; color: #1e3a8a; }
+    .complete { background-color: #e0f2fe; color: #075985; }
+    .missing { background-color: #fecaca; color: #7f1d1d; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.5; } }
+    footer {
+      margin-top: 50px;
+      color: #777;
+      font-size: 0.9em;
+    }
+    #inputSection {
+      margin-top: 20px;
+    }
+    input {
+      padding: 8px 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      width: 120px;
+      text-align: center;
+    }
+    .input-btn {
+      margin-left: 10px;
+      background: #0078ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .input-btn:hover { background: #005fcc; }
+    #modeInfo {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 Tool Ttak - ST-BOX (Mock-Up)</h1>
+  <p>ESP8266 없이 시뮬레이션 중입니다.</p>
+
+  <div id="inputSection">
+    <input type="text" id="inputCode" maxlength="4" placeholder="예: 1010">
+    <button class="input-btn" onclick="applyCode()">적용</button>
+  </div>
+
+  <div id="modeInfo">현재 상태: -</div>
+
+  <div class="status-container" id="toolContainer"></div>
+
+  <footer>© 2025 Tool Ttak | Capstone Design</footer>
+
+  <script>
+    const tools = [
+      { id: 1, name: "공구1" },
+      { id: 2, name: "공구2" },
+      { id: 3, name: "공구3" }
+    ];
+    const container = document.getElementById("toolContainer");
+
+    // 초기 카드 생성
+    tools.forEach(tool => {
+      const div = document.createElement("div");
+      div.className = "tool-card";
+      div.innerHTML = `
+        <h2>${tool.name}</h2>
+        <div id="status-${tool.id}" class="status">대기 중</div>
+      `;
+      container.appendChild(div);
+    });
+
+    function applyCode() {
+      const code = document.getElementById("inputCode").value.trim();
+      if (!/^[01]{4}$/.test(code)) {
+        alert("4자리 0과 1로만 입력해주세요! (예: 1010)");
+        return;
+      }
+
+      // 앞 3자리 = 공구 상태, 마지막 = 작업 모드
+      const toolBits = code.slice(0, 3).split("").map(b => parseInt(b));
+      const workBit = parseInt(code[3]); // 0=작업중, 1=작업완료
+      const modeInfo = document.getElementById("modeInfo");
+      modeInfo.textContent = "현재 상태: " + (workBit === 0 ? "작업 중" : "작업 완료");
+
+      tools.forEach((tool, i) => {
+        const exists = toolBits[i] === 1;
+        const statusEl = document.getElementById(`status-${tool.id}`);
+
+        if (workBit === 0) { // 작업 중
+          if (exists) {
+            statusEl.textContent = "✅ 반납됨 (대기)";
+            statusEl.className = "status ok";
+          } else {
+            statusEl.textContent = "🔧 사용 중";
+            statusEl.className = "status use";
+          }
+        } else { // 작업 완료
+          if (exists) {
+            statusEl.textContent = "✔️ 사용 완료 (정상 반납)";
+            statusEl.className = "status complete";
+          } else {
+            statusEl.textContent = "⚠️ 분실됨! 경보 발생";
+            statusEl.className = "status missing";
+            playAlert();
+          }
+        }
+      });
+    }
+
+    // 경보음 함수
+    function playAlert() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      oscillator.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    }
+  </script>
+</body>
+</html>
