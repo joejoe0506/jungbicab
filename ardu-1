@@ -1,0 +1,82 @@
+#include <SoftwareSerial.h>
+#include <Wire.h>
+
+SoftwareSerial BTSerial(10, 11); // TX=10, RX=11
+
+// FSR 센서 핀
+const int fsr1 = A0;
+const int fsr2 = A1;
+const int fsr3 = A2;
+
+// LED, 부저 핀
+const int led1 = 52;
+const int led2 = 50;
+const int led3 = 48;
+const int led4 = 46;
+const int buzzer = 3;
+
+// 내장 버튼 (디지털 2번 핀 사용)
+const int buttonPin = 2;
+
+// 기준값
+const int threshold = 100;
+
+String code = "";
+
+void setup() {
+  Serial.begin(9600);
+  BTSerial.begin(9600);
+
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP); // 내장 풀업 사용 (눌리면 LOW)
+
+  Serial.println("=== FSR + 버튼 기반 코드 생성 ===");
+}
+
+void loop() {
+  // 1️⃣ FSR 값 읽기
+  int v1 = analogRead(fsr1);
+  int v2 = analogRead(fsr2);
+  int v3 = analogRead(fsr3);
+
+  // 2️⃣ 센서값을 1/0으로 변환
+  int s1 = (v1 >= threshold) ? 1 : 0;
+  int s2 = (v2 >= threshold) ? 1 : 0;
+  int s3 = (v3 >= threshold) ? 1 : 0;
+
+  // 3️⃣ 버튼 상태 읽기 (눌리면 1, 아니면 0)
+  int buttonState = digitalRead(buttonPin);
+  int workState = (buttonState == LOW) ? 1 : 0; // 눌렸을 때 1 = 작업완료
+
+  // 4️⃣ 코드 생성
+  code = String(s1) + String(s2) + String(s3) + String(workState);
+
+  // 5️⃣ 블루투스 + 시리얼 전송
+  BTSerial.println(code);
+  Serial.print("코드: ");
+  Serial.println(code);
+
+  // 6️⃣ LED 제어 (공구 상태 표시)
+  digitalWrite(led1, s1 ? HIGH : LOW);
+  digitalWrite(led2, s2 ? HIGH : LOW);
+  digitalWrite(led3, s3 ? HIGH : LOW);
+  digitalWrite(led4, workState ? HIGH : LOW);
+
+  // 7️⃣ 부저 제어 로직
+  if (workState == 0) { // 작업완료 상태일 때
+    if (s1 == 0 || s2 == 0 || s3 == 0) { // 하나라도 공구가 없으면 경고음
+      tone(buzzer, 1000);
+      delay(2000);
+      noTone(buzzer);
+    } else {
+      noTone(buzzer);
+    }
+  } else {
+    noTone(buzzer); // 작업 중일 땐 무음
+  }
+
+  delay(800); // 0.5초 간격으로 갱신
+}
