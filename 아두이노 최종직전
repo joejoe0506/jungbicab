@@ -1,0 +1,119 @@
+#include <SoftwareSerial.h>
+
+// 🔹 블루투스용 소프트웨어 시리얼
+SoftwareSerial BTSerial(10, 11); // TX=10, RX=11
+
+// 🔹 NodeMCU 통신용 (Mega TX1=18 → NodeMCU RX)
+#define NodeSerial Serial1
+
+// 🔹 FSR 센서 핀
+const int fsr1 = A0;
+const int fsr2 = A1;
+const int fsr3 = A2;
+
+// 🔹 LED / 부저 핀
+const int led1 = 52;
+const int led2 = 50;
+const int led3 = 48;
+
+const int statusLED = 46;   // 작업중/작업완료 LED
+const int buzzer = 3;
+
+// 🔹 스위치 핀 (토글용)
+const int switchPin = 44;
+
+// 🔹 기준값
+const int threshold = 100;
+
+// 🔹 상태 변수들
+String code = "";
+int workState = 0;            // 0 = 작업중, 1 = 작업완료
+int lastSwitchState = HIGH;   // 디바운싱 위한 이전 버튼 상태 저장
+
+void setup() {
+  Serial.begin(9600);
+  BTSerial.begin(9600);
+  NodeSerial.begin(9600);
+
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  pinMode(statusLED, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+
+  pinMode(switchPin, INPUT_PULLUP);   // 스위치 눌리면 LOW
+
+  Serial.println("=== FSR + 토글 스위치 연결 완료 ===");
+}
+
+void loop() {
+
+  // ===================================================
+  // 1️⃣ FSR 센서 읽기 → 1 or 0 변환
+  // ===================================================
+  int v1 = analogRead(fsr1);
+  int v2 = analogRead(fsr2);
+  int v3 = analogRead(fsr3);
+
+  int s1 = (v1 >= threshold) ? 1 : 0;
+  int s2 = (v2 >= threshold) ? 1 : 0;
+  int s3 = (v3 >= threshold) ? 1 : 0;
+
+  // ===================================================
+  // 2️⃣ 스위치(44번) 눌림 감지해서 workState 토글
+  // ===================================================
+  int switchState = digitalRead(switchPin);
+
+  if (switchState == LOW && lastSwitchState == HIGH) {
+    // 버튼 눌렸을 때만 토글!
+    workState = !workState;  // 0 ↔ 1 상태 변경
+
+    Serial.print("작업 상태 변경 → ");
+    Serial.println(workState == 1 ? "작업완료 (1)" : "작업중 (0)");
+
+    delay(250); // 디바운스
+  }
+
+  lastSwitchState = switchState;
+
+  // ===================================================
+  // 3️⃣ LED 46번에 작업 상태 반영
+  // ===================================================
+  digitalWrite(statusLED, workState ? HIGH : LOW);
+
+  // ===================================================
+  // 4️⃣ 4자리 코드 생성
+  // ===================================================
+  code = String(s1) + String(s2) + String(s3) + String(workState);
+
+  Serial.print("코드 생성: ");
+  Serial.println(code);
+
+  // ===================================================
+  // 5️⃣ NodeMCU + Bluetooth 로 코드 전송
+  // ===================================================
+  BTSerial.println(code);
+  NodeSerial.println(code);
+
+  // ===================================================
+  // 6️⃣ 공구 LED 반영
+  // ===================================================
+  digitalWrite(led1, s1 ? HIGH : LOW);
+  digitalWrite(led2, s2 ? HIGH : LOW);
+  digitalWrite(led3, s3 ? HIGH : LOW);
+
+  // ===================================================
+  // 7️⃣ 작업완료 + 공구 없음 → 부저 경고
+  // ===================================================
+  if (workState == 1) {  // 작업완료
+    if (s1 == 0 || s2 == 0 || s3 == 0) {
+      tone(buzzer, 1000);
+      delay(2000);
+      noTone(buzzer);
+    }
+  } else {
+    noTone(buzzer);
+  }
+
+  delay(300);
+}
